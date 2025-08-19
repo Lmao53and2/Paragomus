@@ -2,10 +2,12 @@ from agents.base import create_model_instance
 from agents.main_agent import create_main_agent
 from agents.task_agent import create_task_agent
 from agents.personality_agent import create_personality_agent
+from agents.ui_agent import create_ui_agent
 from utils.pdf_parser import extract_text_from_pdf
 from services.task_extraction import parse_tasks_from_response
 from dotenv import load_dotenv
 import os
+import json
 from core.agent_manager import AgentManager
 from agno.models.perplexity import Perplexity
 from agno.models.openai import OpenAIChat
@@ -33,7 +35,7 @@ def initialize_agent():
         raise ValueError("❌ PERPLEXITY_API_KEY not found in environment variables")
     
     agent = AgentManager(provider, model, api_key)
-    print(f"✅ Agent initialized: {type(agent.main_agent.model)}")
+    print(f"✅ Enhanced Agent Manager initialized with 4 agents")
     return agent
 
 
@@ -53,94 +55,105 @@ def load_pdf_context():
         return ""
 
 
-def parse_personality_traits_from_response(response_text):
-    """Parse personality traits from the personality agent's response."""
-    traits = []
-    lines = response_text.split('\n')
-    
-    # Look for common personality analysis patterns
-    trait_indicators = [
-        'trait:', 'personality:', 'characteristic:', 'tendency:', 
-        'shows:', 'indicates:', 'demonstrates:', 'exhibits:',
-        'appears to be:', 'seems to:', 'likely to:'
-    ]
-    
-    for line in lines:
-        line_lower = line.lower().strip()
-        for indicator in trait_indicators:
-            if indicator in line_lower:
-                trait = line.replace(indicator, '').strip()
-                if trait and len(trait) > 5:  # Filter out very short matches
-                    traits.append(trait.capitalize())
-    
-    # Also look for bullet points or numbered lists that might contain traits
-    if not traits:
-        for line in lines:
-            line = line.strip()
-            if line.startswith(('•', '-', '*')) or (line and line[0].isdigit() and '.' in line):
-                clean_line = line.lstrip('•-*0123456789. ').strip()
-                if clean_line and len(clean_line) > 10:
-                    traits.append(clean_line)
-    
-    return traits[:5]  # Limit to top 5 traits for readability
-
-
 def display_extracted_tasks(agent, user_input):
-    """Extract and display tasks from user input."""
+    """Extract and display tasks from user input with personality adaptations."""
     print("\n--- 📋 Extracted Tasks ---")
     
     try:
-        task_response = agent.extract_tasks(user_input)
-        task_text = task_response.content if hasattr(task_response, "content") else str(task_response)
-        parsed_tasks = parse_tasks_from_response(task_text)
+        task_data = agent.extract_tasks(user_input)
         
-        if parsed_tasks:
-            for i, task in enumerate(parsed_tasks, 1):
-                print(f"🔹 Task {i}: {task}")
+        if isinstance(task_data, dict):
+            tasks = task_data.get('tasks', [])
+            summary = task_data.get('summary', '')
+            recommendations = task_data.get('recommendations', '')
+            
+            if tasks:
+                for i, task in enumerate(tasks, 1):
+                    print(f"🔹 Task {i}: {task.get('title', 'Untitled')}")
+                    if task.get('description'):
+                        print(f"   📝 {task['description']}")
+                    if task.get('priority'):
+                        print(f"   ⚡ Priority: {task['priority']}")
+                    if task.get('estimated_time'):
+                        print(f"   ⏱️  Time: {task['estimated_time']}")
+                    print()
+                
+                if summary:
+                    print(f"📊 Summary: {summary}")
+                if recommendations:
+                    print(f"💡 Recommendations: {recommendations}")
+            else:
+                print("❌ No tasks found")
         else:
-            print("❌ No clear tasks found")
+            print("❌ Could not parse task data")
             
     except Exception as e:
         print(f"❌ Error extracting tasks: {e}")
 
 
-def display_personality_insights(agent, user_input, assistant_response):
-    """Extract and display personality traits from the conversation."""
+def display_personality_insights(agent):
+    """Display current personality profile and adaptations."""
     print("\n--- 🧠 Personality Insights ---")
     
     try:
-        # Create a conversation context for the personality agent
-        conversation_context = f"User: {user_input}\nAssistant: {assistant_response}"
+        profile = agent.get_personality_profile()
+        adaptations = agent.get_adaptation_suggestions()
         
-        # Call the personality analysis (assuming AgentManager has this method)
-        if hasattr(agent, 'analyze_personality'):
-            personality_response = agent.analyze_personality(conversation_context)
-        elif hasattr(agent, 'personality_agent'):
-            # Direct call to personality agent if available
-            personality_response = agent.personality_agent.run(conversation_context)
-        else:
-            print("❌ Personality analysis not available")
-            return
-            
-        personality_text = personality_response.content if hasattr(personality_response, "content") else str(personality_response)
+        if profile.get('traits'):
+            print("🧩 Key Traits:")
+            for trait, value in profile['traits'].items():
+                if value > 0.6:  # Only show strong traits
+                    trait_name = trait.replace('_', ' ').title()
+                    print(f"   • {trait_name}: {int(value * 100)}%")
         
-        # Parse personality traits from the response
-        personality_traits = parse_personality_traits_from_response(personality_text)
+        if profile.get('preferences'):
+            print("\n🎯 Preferences:")
+            for pref, value in profile['preferences'].items():
+                pref_name = pref.replace('_', ' ').title()
+                print(f"   • {pref_name}: {value}")
         
-        if personality_traits:
-            for i, trait in enumerate(personality_traits, 1):
-                print(f"🧩 Trait {i}: {trait}")
-        else:
-            # If no traits found, show the raw analysis
-            print(f"📝 Analysis: {personality_text[:200]}..." if len(personality_text) > 200 else personality_text)
+        if adaptations:
+            print("\n🔧 Active Adaptations:")
+            for agent_type, agent_adaptations in adaptations.items():
+                agent_name = agent_type.replace('_adaptations', '').replace('_', ' ').title()
+                print(f"   {agent_name}:")
+                for key, value in agent_adaptations.items():
+                    adaptation_name = key.replace('_', ' ').title()
+                    print(f"     - {adaptation_name}: {value}")
             
     except Exception as e:
-        print(f"❌ Error analyzing personality: {e}")
+        print(f"❌ Error displaying personality insights: {e}")
+
+
+def display_ui_config(agent):
+    """Display current UI configuration."""
+    print("\n--- 🎨 UI Configuration ---")
+    
+    try:
+        ui_config = agent.get_ui_config()
+        
+        if ui_config.get('theme'):
+            theme = ui_config['theme']
+            print(f"🎨 Theme: {theme.get('colorScheme', 'auto')}")
+            print(f"🎯 Primary Color: {theme.get('primaryColor', '#3b82f6')}")
+        
+        if ui_config.get('layout'):
+            layout = ui_config['layout']
+            print(f"📐 Layout: {layout.get('type', 'standard')}")
+            print(f"📱 Content Layout: {layout.get('contentLayout', 'two-column')}")
+        
+        if ui_config.get('animations'):
+            animations = ui_config['animations']
+            print(f"✨ Animation Level: {animations.get('level', 'subtle')}")
+            
+    except Exception as e:
+        print(f"❌ Error displaying UI config: {e}")
 
 
 def chat_loop(agent, context_text):
-    """Main chat loop with task and personality extraction."""
-    print("💬 Ask me anything (type 'exit' to quit):\n")
+    """Enhanced chat loop with full personality adaptation."""
+    print("💬 Enhanced AI Assistant - Now with personality adaptation!")
+    print("Ask me anything (type 'exit' to quit, 'profile' to see your personality):\n")
     
     while True:
         user_input = input("You: ").strip()
@@ -149,21 +162,26 @@ def chat_loop(agent, context_text):
             print("👋 Goodbye!")
             break
         
+        if user_input.lower() == 'profile':
+            display_personality_insights(agent)
+            display_ui_config(agent)
+            print("\n" + "="*50 + "\n")
+            continue
+        
         if not user_input:
             continue
             
         try:
-            # Get main response
+            # Get adaptive response (this automatically updates personality profile)
             response = agent.ask(user_input, context=context_text)
-            main_response = response.content if hasattr(response, "content") else str(response)
             
-            print(f"🤖: {main_response}")
+            print(f"🤖: {response}")
             
-            # Display extracted tasks
+            # Display extracted tasks with adaptations
             display_extracted_tasks(agent, user_input)
             
-            # Display personality insights with both user input and assistant response
-            display_personality_insights(agent, user_input, main_response)
+            # Display updated personality insights
+            display_personality_insights(agent)
             
             print("\n" + "="*50 + "\n")
             
@@ -177,7 +195,13 @@ def chat_loop(agent, context_text):
 
 def main():
     """Main application entry point."""
-    print("🚀 Starting AI Assistant with Task & Personality Analysis")
+    print("🚀 Starting Enhanced Adaptive AI Assistant")
+    print("="*60)
+    print("Features:")
+    print("• Dynamic personality profiling")
+    print("• Adaptive task extraction")
+    print("• Personalized responses")
+    print("• Generative UI configuration")
     print("="*60)
     
     try:
@@ -188,7 +212,7 @@ def main():
         
         print("\n" + "="*60)
         
-        # Start the chat loop
+        # Start the enhanced chat loop
         chat_loop(agent, context_text)
         
     except Exception as e:
