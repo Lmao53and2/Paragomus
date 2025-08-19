@@ -1,6 +1,7 @@
 {
   "name": "adaptive-ai-assistant-ui",
   "version": "1.0.0",
+  "type": "module",
   "description": "Adaptive AI Assistant with Generative UI",
   "main": "index.js",
   "scripts": {
