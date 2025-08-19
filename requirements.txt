@@ -6,4 +6,6 @@ sqlalchemy
 fastapi
 uvicorn
 pydantic
+websockets
+cors
 
