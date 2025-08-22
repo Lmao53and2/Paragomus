@@ -20,7 +20,7 @@ app = FastAPI(title="Adaptive AI Assistant API", version="1.0.0")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify actual origins
+    allow_origins=[settings.FRONTEND_ORIGIN], # In production, specify actual origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
