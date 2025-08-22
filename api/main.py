@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from storage.loader import init_db
 from api.config import settings
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
@@ -25,6 +26,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
 
 # Global agent manager instance
 agent_manager = None
