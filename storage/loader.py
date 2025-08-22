@@ -1,5 +1,16 @@
 from agno.storage.agent.sqlite import SqliteAgentStorage
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import text
+from api.config import settings
 import os
+
+Base = declarative_base()
+engine = create_async_engine(settings.DATABASE_URL, pool_size=5, max_overflow=10)
+
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 def load_session_storage():
     storage_path = os.getenv("AGENT_STORAGE_PATH", "business_agent.db")
