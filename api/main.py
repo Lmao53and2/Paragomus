@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from api.config import settings
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import json
@@ -8,6 +9,8 @@ import asyncio
 from core.agent_manager import AgentManager
 from dotenv import load_dotenv
 import os
+
+
 
 # Load environment variables
 load_dotenv()
