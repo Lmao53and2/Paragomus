@@ -1,6 +1,6 @@
 from agno.agent import Agent
-from agents.base import create_model_instance
-from storage.loader import load_session_storage
+from backend.agents.base import create_model_instance
+from backend.storage.loader import load_session_storage
 import json
 
 class AdaptiveChatAgent:

@@ -1,6 +1,6 @@
 from agno.agent import Agent
-from agents.base import create_model_instance
-from storage.loader import load_personality_storage
+from backend.agents.base import create_model_instance
+from backend.storage.loader import load_personality_storage
 import json
 import os
 
