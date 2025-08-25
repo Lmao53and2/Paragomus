@@ -153,6 +153,10 @@ async def get_ui_config(request: UIConfigRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.options("/ui-config")
+async def options_ui_config():
+    return {"Allow": "POST, OPTIONS"}
+
 @app.get("/adaptations")
 async def get_adaptations():
     """Get current adaptation suggestions."""
